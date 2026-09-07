@@ -1,0 +1,16 @@
+name: Hello Actions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show repository and runner
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Runner OS: ${{ runner.os }}"
