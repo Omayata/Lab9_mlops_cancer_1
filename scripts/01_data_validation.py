@@ -1,36 +1,67 @@
+import mlflow
 from sklearn.datasets import load_breast_cancer
-import sys
-import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s"
-)
+EXPECTED_CLASSES = 2  # ข้อมูลชุดนี้เป็น binary (malignant / benign) — Wine เดิมเช็ค < 3 ซึ่งจะทำให้ชุดนี้ Failed
+MIN_CLASS_BALANCE = 0.20  # คลาสน้อยสุดต้องไม่ต่ำกว่า 20% (Capture 2.2: ลองแก้เป็น 0.45 ให้ไม่ผ่าน)
 
-# Load dataset
-data = load_breast_cancer()
 
-X = data.data
-y = data.target
+def validate_data():
+    """
+    Loads the breast cancer dataset, performs basic validation checks,
+    and logs the results to MLflow.
+    """
+    mlflow.set_experiment("Breast Cancer - Data Validation")
 
-# Basic information
-logging.info(f"Dataset shape: {X.shape}")
-logging.info(f"Number of classes: {len(set(y))}")
+    with mlflow.start_run():
+        print("Starting data validation run...")
+        mlflow.set_tag("ml.step", "data_validation")
 
-# Class distribution
-classes, counts = __import__("numpy").unique(y, return_counts=True)
+        # 1. Load data as a Pandas DataFrame
+        data = load_breast_cancer(as_frame=True)
+        df = data.frame
+        print("Data loaded successfully.")
 
-for cls, count in zip(classes, counts):
-    percentage = count / len(y) * 100
-    logging.info(
-        f"Class {cls} ({data.target_names[cls]}): "
-        f"{count} samples ({percentage:.2f}%)"
-    )
+        # 2. Perform validation checks
+        num_rows, num_cols = df.shape
+        num_classes = df["target"].nunique()
+        missing_values = df.isnull().sum().sum()
+        # สัดส่วนของ "คลาสที่น้อยที่สุด" (ดูทุกคลาสแล้วเอาค่าน้อยสุด ไม่ใช่ค่าของคลาสสุดท้าย)
+        class_balance = df["target"].value_counts(normalize=True).min()
 
-# Validation
-if len(classes) != 2:
-    logging.error("VALIDATION FAILED: Dataset must have exactly 2 classes.")
-    sys.exit(1)
+        print(f"Dataset shape: {num_rows} rows, {num_cols} columns")
+        print(f"Number of classes: {num_classes}")
+        print(f"Missing values: {missing_values}")
+        print(f"Class balance (minority class): {class_balance:.4f}")
 
-logging.info("VALIDATION PASSED")
-sys.exit(0)
+        # 3. Log validation results to MLflow
+        mlflow.log_metric("num_rows", num_rows)
+        mlflow.log_metric("num_cols", num_cols)
+        mlflow.log_metric("missing_values", missing_values)
+        mlflow.log_metric("class_balance", class_balance)
+        mlflow.log_param("num_classes", num_classes)
+        mlflow.log_param("min_class_balance", MIN_CLASS_BALANCE)
+
+        # Check if the data passes our defined criteria
+        validation_status = "Success"
+        if missing_values > 0:
+            validation_status = "Failed"
+            print("FAILED: dataset has missing values")
+        if num_classes != EXPECTED_CLASSES:
+            validation_status = "Failed"
+            print(f"FAILED: expected {EXPECTED_CLASSES} classes, got {num_classes}")
+        if class_balance < MIN_CLASS_BALANCE:
+            validation_status = "Failed"
+            print(f"FAILED: class balance {class_balance:.2%} is below {MIN_CLASS_BALANCE:.0%}")
+
+        mlflow.log_param("validation_status", validation_status)
+        print(f"Validation status: {validation_status}")
+
+        # 4. คืน exit code ที่ไม่ใช่ 0 เมื่อข้อมูลไม่ผ่าน — ให้ CI จับได้และหยุด pipeline
+        if validation_status == "Failed":
+            raise SystemExit("Data validation failed — หยุด pipeline ไม่ให้ไปขั้นถัดไป")
+
+        print("Data validation run finished.")
+
+
+if __name__ == "__main__":
+    validate_data()

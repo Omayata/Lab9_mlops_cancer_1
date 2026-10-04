@@ -1,6 +1,18 @@
+# ไฟล์ที่ MLflow สร้างตอนรัน — ห้าม commit ขึ้น GitHub
 mlflow.db
 mlruns/
+processed_data/
 __pycache__/
-*.pyc
-.venv/
-.env
+
+# ไฟล์ที่เครื่องมือใน CI สร้างไว้ชั่วคราว
+.ruff_cache/
+.pytest_cache/
+report-*.xml
+
+# ผลการรันเก่าที่ย้ายมาเก็บไว้ (ไม่ต้องขึ้น GitHub)
+_backup_old_runs/
+
+# ไฟล์ขยะของระบบปฏิบัติการ
+.DS_Store
+Thumbs.db
+desktop.ini

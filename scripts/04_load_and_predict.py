@@ -1,89 +1,42 @@
 import mlflow
-import mlflow.sklearn
-import joblib
-import pandas as pd
-
 from sklearn.datasets import load_breast_cancer
 
-
-# =========================
-# MLflow
-# =========================
-
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
-
-model_uri = "models:/cancer-classifier-prod@staging"
-
-model = mlflow.sklearn.load_model(model_uri)
+MODEL_NAME = "cancer-classifier-prod"
+MODEL_ALIAS = "staging"
 
 
-# =========================
-# Load dataset
-# =========================
+def load_and_predict():
+    """
+    Simulates a production scenario: load the model by alias from the Model Registry
+    and predict the first sample of each class (malignant, benign).
+    """
+    print(f"Loading model '{MODEL_NAME}' with alias '@{MODEL_ALIAS}'...")
+    try:
+        model = mlflow.pyfunc.load_model(model_uri=f"models:/{MODEL_NAME}@{MODEL_ALIAS}")
+    except mlflow.exceptions.MlflowException as e:
+        print(f"\nError loading model: {e}")
+        print(f"Please make sure a model version has the alias '@{MODEL_ALIAS}' in the MLflow UI.")
+        return
 
-data = load_breast_cancer()
+    data = load_breast_cancer(as_frame=True)
+    X, y = data.data, data.target
+    target_names = data.target_names  # ['malignant', 'benign']
 
-X = pd.DataFrame(
-    data.data,
-    columns=data.feature_names
-)
+    # รายแรกของแต่ละคลาส: malignant (0) และ benign (1)
+    for cls in [0, 1]:
+        idx = y[y == cls].index[0]
+        sample = X.loc[[idx]]  # ข้อมูลดิบ — scaler อยู่ใน pipeline แล้ว ไม่ต้อง scale เอง
+        prediction = int(model.predict(sample)[0])
+        actual_name = target_names[cls]
+        predicted_name = target_names[prediction]
 
-y = data.target
-
-
-# =========================
-# Load scaler
-# =========================
-
-scaler = joblib.load(
-    "artifacts/scaler.joblib"
-)
-
-X_scaled = pd.DataFrame(
-    scaler.transform(X),
-    columns=data.feature_names
-)
-
-
-# =========================
-# Find first sample
-# of each class
-# =========================
-
-first_malignant = next(
-    i for i, label in enumerate(y)
-    if label == 0
-)
-
-first_benign = next(
-    i for i, label in enumerate(y)
-    if label == 1
-)
-
-
-indices = [
-    first_malignant,
-    first_benign
-]
-
-
-# =========================
-# Predict
-# =========================
-
-for i in indices:
-
-    sample = X_scaled.iloc[[i]]
-
-    prediction = model.predict(sample)[0]
-
-    actual_name = data.target_names[y[i]]
-    predicted_name = data.target_names[prediction]
-
-    correct = prediction == y[i]
-
-    print(f"Row: {i}")
-    print(f"Actual: {actual_name}")
-    print(f"Predicted: {predicted_name}")
-    print(f"Correct: {correct}")
+        print("-" * 30)
+        print(f"Row: {idx}")
+        print(f"Actual: {actual_name}")
+        print(f"Predicted: {predicted_name}")
+        print(f"Correct: {prediction == cls}")
     print("-" * 30)
+
+
+if __name__ == "__main__":
+    load_and_predict()

@@ -1,16 +1,10 @@
+"""ส่วนที่ 1 — สำรวจข้อมูล Breast Cancer (Capture 1.2)"""
 from sklearn.datasets import load_breast_cancer
 
-d = load_breast_cancer()
+d = load_breast_cancer(as_frame=True)
 
-print("Number of samples:", d.data.shape[0])
-print("Number of features:", d.data.shape[1])
-print("Target names:", d.target_names)
-
-print("\nClass distribution:")
-import numpy as np
-
-unique, counts = np.unique(d.target, return_counts=True)
-
-for label, count in zip(unique, counts):
-    percentage = count / len(d.target) * 100
-    print(f"{label} ({d.target_names[label]}): {count} ({percentage:.2f}%)")
+print("Shape (rows, columns):", d.frame.shape)  # (569, 31) = 30 ฟีเจอร์ + target
+print("Target names:", d.target_names)  # ['malignant' 'benign'] → 0 = malignant, 1 = benign
+print("Number of classes:", d.frame["target"].nunique())
+print("\nClass proportion:")
+print(d.frame["target"].value_counts(normalize=True))  # 1 → 0.6274, 0 → 0.3726
